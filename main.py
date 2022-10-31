@@ -4,15 +4,18 @@ import time
 import requests
 import xlsxwriter
 
-def pars():
+from selenium import webdriver
+from bs4 import BeautifulSoup
+
+
+def pars_wb():
     page_number = 1 # Начальная страница
-    count_pages = 0  # Счетчик страниц
 
     session = requests.Session() # Запуск сессии
 
-    while count_pages != 2: # - Кол-во страниц для парсинга
+    while page_number != 3: # - Кол-во страниц для парсинга
         url = f"https://search.wb.ru/exactmatch/ru/common/v4/search?appType=1&couponsGeo=12,3,18,15,21&curr=rub&dest=-1029256,-102269,-2162196,-1257786&emp=0&lang=ru&locale=ru&page={page_number}&pricemarginCoeff=1.0&query=%D0%A1%D0%BC%D0%B0%D1%80%D1%82%D1%84%D0%BE%D0%BD%D1%8B&reg=0&regions=80,68,64,83,4,38,33,70,82,69,86,75,30,40,48,1,22,66,31,71&resultset=catalog&sort=popular&spp=0&suppressSpellcheck=false"
-        headers = { #- Заголовок для get запроса
+        header = { #- Заголовок для get запроса
             "Accept": "*/*",
             "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": "en-US,en;q=0.9,ru-RU;q=0.8,ru;q=0.7",
@@ -29,7 +32,7 @@ def pars():
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36"
         }
 
-        response = session.get(url, headers=headers)
+        response = session.get(url, headers=header)
         data = response.json() # - Перевод ответа в словарь
 
         file_path_json = r"C:\Users\xmedv\PycharmProjects\parserBot\test.json"
@@ -51,10 +54,10 @@ def pars():
                 file.write(" ")
                 file.write(str(data["data"]["products"][r]["salePriceU"]))
                 file.write("\n")
-        file.close()
+            file.close()
 
         page_number += 1
-        count_pages += 1
+
         time.sleep(random.randint(12, 15))
 
         xl_file = xlsxwriter.Workbook(r"C:\Users\xmedv\PycharmProjects\parserBot\test.xlsx")
@@ -75,6 +78,65 @@ def pars():
             row += 1
         xl_file.close()
 
+######################################################################################################################
+
+
+def get_data():
+    page_number = 1
+    while page_number != 3:
+        url = f"https://ozon.by/category/smartfony-15502/?category_was_predicted=true&deny_category_prediction=true&from_global=true&page={page_number}&text=смартфоны"
+        driver = webdriver.Chrome(executable_path="C:\\Users\\xmedv\\PycharmProjects\\chromedriver.exe")
+        try:
+            time.sleep(2)
+            driver.get(url=url)
+            time.sleep(2)
+            driver.execute_script("window.scrollTo(0,document.body.scrollHeight)")
+            with open("pars.html", "w", encoding="utf-8") as file:
+                file.write(driver.page_source)
+            file.close()
+
+            with open("pars.html", encoding="utf-8") as file:
+                site = file.read()
+
+            soup = BeautifulSoup(site, "lxml")
+            file.close()
+            card = soup.find_all("div", class_="k7p pk7")
+
+            for att in card:
+                name = att.find("span", class_="x6d d7x x7d x9d tsBodyL mk1").text
+                price = att.find("div", class_='_32-a').text
+                desc = att.find("span", class_="x6d d7x d0y tsBodyM").text
+                url_card = "https://ozon.by" + att.find("a").get("href")
+                print(name, price, desc, url_card)
+
+                yield name, desc, price, url_card
+
+            page_number += 1
+
+        except Exception as ex:
+            print(ex)
+
+
+def pars_ozo():
+    book = xlsxwriter.Workbook("C:\\Users\\xmedv\\Desktop\\data.xlsx")
+    page = book.add_worksheet("smartphones")
+
+    row = 0
+    column = 0
+
+    page.set_column("A:A", 50)
+    page.set_column("B:B", 10)
+    page.set_column("C:C", 20)
+    page.set_column("D:D", 30)
+
+    for i in get_data():
+        page.write(row, column, i[0])
+        page.write(row, column+1, i[1])
+        page.write(row, column+2, i[2])
+        page.write(row, column+3, i[3])
+        row += 1
+    book.close()
+
 
 if __name__ == '__main__':
-    pars()
+    pars_wb()
